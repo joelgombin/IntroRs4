@@ -1,0 +1,294 @@
+\documentclass[slidetop, 10pt]{beamer}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{default}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{lmodern}
+\usepackage[frenchb]{babel}
+\usetheme{Antibes}
+
+\usecolortheme{beaver}
+\title{Séminaire d'introduction à R}
+\subtitle{séance 4 - Modélisation}
+\author{Joël Gombin}
+\institute{CURAPP - UPJV}
+\date{24 février 2012}
+\usepackage{graphicx}
+\usepackage[fixlanguage]{babelbib}
+\selectbiblanguage{french}
+\setbeamertemplate{navigation symbols}{}
+\usepackage{listings}
+
+\usepackage{color}
+\usepackage{alltt}
+\usepackage{hyperref}
+
+\SweaveOpts{size="tiny"}
+
+\AtBeginSection[] 
+{ 
+  \begin{frame}[plain]{Plan} 
+    \tableofcontents[currentsection, hideothersubsections] 
+  \end{frame} 
+} 
+
+
+\ifdefined\knitrout
+  \renewenvironment{knitrout}{\begin{tiny}}{\end{tiny}}
+\else
+\fi
+
+\begin{document}
+
+\frame{\titlepage}
+
+
+<<load, echo=FALSE, results="hide">>=
+load("/media/HDD/Dropbox/Thèse/séminaire R/séance 1/mini_picardie.Rdata")
+@
+
+\begin{frame}
+ \frametitle{Plan de la séance}
+ \tableofcontents[pausesections]
+\end{frame}
+
+\section{Introduction}
+\begin{frame}
+
+\frametitle{Introduction}
+
+Cette séance, comme la suivante, concerne les cas où l'on cherche à rendre compte des relations entre plusieurs variables. 
+Contrairement à l'analyse géométrique des données, les méthodes évoquées ici sont asymétriques : il y a une variable dépendante
+et des variables indépendantes.
+
+On parle alors de modélisation : on cherche à modéliser une variable en fonction d'autres. 
+Cette modélisation a souvent une ambition causale et/ou prédictive. Elle prend la forme d'une relation numérique.
+
+\end{frame}
+
+\section{La régression linéaire}
+\subsection{Débuter avec la régression linéaire}
+\begin{frame}[fragile]
+ \frametitle{Débuter avec la régression linéaire}
+
+Le modèle linéaire simple est extrêmement facile à utiliser dans \verb!R!. On utilise la fonction \verb!lm()!, comme "linear model".
+
+<<modele1>>=
+# charger mini_picardie
+modele <- lm(AbsIns ~ proprietaire, data = mini_picardie)
+summary(modele)
+@
+
+\end{frame}
+
+\begin{frame}[fragile]
+ \frametitle{Débuter avec la régression linéaire}
+
+(Les résultats du modèle peuvent aussi assez facilement se représenter comme un tableau - par exemple via la fonction \verb!genere.tableau! du package \verb!rgrs!)
+
+<<tableau1, echo=F, tidy=F, results="asis", warning = F, background="white">>=
+require(xtable)
+print(xtable(modele, floating=FALSE))
+@
+ 
+On peut accéder aux différentes composantes du résultat :
+
+<<resultats>>=
+coef(modele)
+summary(modele)$r.squared
+summary(modele$fitted.values)
+@
+
+\end{frame}
+
+\subsection{Inclure des variables catégorielles}
+
+\begin{frame}[fragile]
+ \frametitle{Inclure des variables catégorielles}
+On inclut une variable catégorielle (de type \verb!factor!) comme n'importe quelle autre variable :
+
+<<modele2, echo=-1>>=
+relevel(mini_picardie[,21], ref="Espace à dominante rurale")->mini_picardie[,21]
+
+modele2 <- lm(AbsIns ~ proprietaire + type_urbain, data = mini_picardie)
+
+@
+
+<<modele2tab, echo =F, results="asis", background="white">>=
+print(xtable(modele2, floating=F))
+@
+
+
+\end{frame}
+
+\subsection{Inclure des interactions}
+
+\begin{frame}
+ \frametitle{Inclure des interactions}
+
+Parfois, on souhaite savoir comment des variables indépendantes interagissent entre elles. On utilise pour cela le signe \verb!:! (ou le raccourci \verb!*!, qui teste toutes les interactions possibles entre les variables).
+
+<<modele3>>=
+modele3 <- lm(AbsIns ~ proprietaire * type_urbain, data = mini_picardie)
+@
+
+<<modele3tab, echo = F, results="asis", background="white">>=
+print(xtable(modele3, floating=F))
+@
+\end{frame}
+
+\subsection{Vérifier qu'un modèle est adéquat}
+
+\begin{frame}[fragile]
+ \frametitle{Vérifier qu'un modèle est adéquat}
+La modélisation linéaire repose sur un certain nombre d'hypothèses sur les données (normalité, indépendance, linéarité, homoscédasticité). Pour vérifier que ces hypothèses sont vérifiées, on recourt à une inspection visuelle. 
+
+Sans rentrer ici dans le détail de ces inspections, on pourra recourir aux fonctions :
+
+<<modeleverif, eval=FALSE>>=
+
+plot(modele)
+
+library(car)
+qqplot(modele)
+crPlots(modele)
+
+@
+
+\end{frame}
+
+\subsection{Rendre compte des résultats d'un modèle}
+
+\begin{frame}[fragile]
+ \frametitle{Rendre compte numériquement des résultats d'un modèle}
+
+Les coefficients d'un modèle n'ont pas en soi beaucoup d'intérêt (sauf pour les variables catégorielles). Il faut donc essayer essayer de les traduire en quantités intéressantes.
+
+Par exemple, comment varie l'abstention lorsque on a peu de propriétaires ou beaucoup de propriétaires ?
+
+Pour cela, on estime la valeur de l'abstention en fonction de la valeur que prennent les variables dépendantes (voir aussi le package \verb!Zelig! de Gary King).
+
+<<modele.estim>>=
+a <- quantile(mini_picardie$proprietaire, 0.2)
+b <- quantile(mini_picardie$proprietaire, 0.8)
+new.data <- data.frame(proprietaire = c(a,b))
+predict(modele, new.data, se.fit=T)
+@
+
+\end{frame}
+
+\begin{frame}[fragile]
+ \frametitle{Les coefficients normalisés}
+
+Une manière de représenter les résultats d'un modèle consiste à estimer un modèle sur les variables dépendantes standardisées. Cela permet de comparer les coefficients les uns aux autres. On appelle cela des coefficients $\beta$. 
+
+<<modele4>>=
+modele4 <- lm(AbsIns ~ proprietaire + ouvriers, data = mini_picardie)
+@
+<<modele4tab, echo=F, results="asis", background="white">>=
+print(xtable(modele4))
+@
+<<lmbeta, warning=F>>=
+library(QuantPsyc)
+lm.beta(modele4)
+@
+
+\end{frame}
+
+
+
+\begin{frame}[fragile]
+ \frametitle{Rendre compte graphiquement des résultats d'un modèle}
+
+<<codegraphe>>=
+new.ouvriers <- seq(0,100,1)
+new.proprietaire1 <- rep(quantile(mini_picardie$proprietaire, 0.2), length(new.ouvriers))
+new.proprietaire2 <- rep(mean(mini_picardie$proprietaire), length(new.ouvriers))
+new.proprietaire3 <- rep(quantile(mini_picardie$proprietaire, 0.8), length(new.ouvriers))
+prev1 <- predict(modele4, newdata=data.frame(ouvriers = new.ouvriers, proprietaire=new.proprietaire1), se.fit=T)
+prev2 <- predict(modele4, newdata=data.frame(ouvriers = new.ouvriers, proprietaire=new.proprietaire2), se.fit=T)
+prev3 <- predict(modele4, newdata=data.frame(ouvriers = new.ouvriers, proprietaire=new.proprietaire3), se.fit=T)
+data <- data.frame(new.ouvriers, new.proprietaire1, new.proprietaire2, new.proprietaire3, prev1=prev1$fit, prev2=prev2$fit, prev3=prev3$fit, prev1a=prev1$fit-prev1$se.fit, prev1b=prev1$fit+prev1$se.fit, prev2a=prev2$fit-prev2$se.fit, prev2b=prev2$fit+prev2$se.fit, prev3a=prev3$fit-prev3$se.fit, prev3b=prev3$fit+prev3$se.fit)
+library(ggplot2, scales)
+data2 <- melt(data, id=c("new.ouvriers", "new.proprietaire1", "new.proprietaire2", "new.proprietaire3"))
+graph <- ggplot(data2, aes(new.ouvriers, value, group=variable), ) + geom_line(aes(colour=variable)) + scale_colour_manual("Proportion de propriétaires", values=c(alpha(c("black", "red", "blue"), 1),c("grey", "grey", colors()[54],colors()[54],colors()[430], colors()[430])) , labels=c("1er quintile de propriétaires", "moyenne de propriétaires", "4e quintile de propriétaires", rep("Intervalle de confiance ",6))) + scale_x_continuous("Proportion d'ouvriers") + scale_y_continuous("Abstention estimée")
+
+@
+
+\end{frame}
+
+
+\begin{frame}[plain]
+
+<<graphe, dev=pdf, fig.width=15, fig.height=12, out.height=0.9\paperheight, echo=F, background=white>>=
+graph +theme_gray(base_size=18)
+@
+
+\end{frame}
+
+
+\section{Le modèle linéaire généralisé (GLM)}
+
+\begin{frame}
+ \frametitle{Le modèle linéaire généralisé}
+
+
+Certaines relations sont difficiles ou impossibles à modéliser directement par une relation linéaire. Par exemple, lorsque la variable dépendante est une variable dichotomique ou polytomique. 
+
+Dans ce cas, on recours au modèle linéaire généralisé, dont la régression logistique est un cas particulier.
+
+La syntaxe est très proche, avec la fonction \verb!glm!. Il faut juste préciser la manière dont on modélise la relation entre les variables.
+
+On va prendre comme exemple des données de la troisième vague du Baromètre politique français (BPF) de 2007. 
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Spécifier le modèle}
+
+<<charger, echo=F, results="hide">>=
+load("/media/HDD/Dropbox/Thèse/séminaire R/séance 4/BPFv3.Rdata")
+@
+
+<<logistique>>=
+#charger le fichier BPFv3.Rdata
+attributes(BPFv3)$variable.labels[c("Q3", "SEXE", "RS2B")]
+BPFv3$PolInt <- BPFv3$Q3
+levels(BPFv3$PolInt) <- c("Oui", "Oui", "Non","Non", "Non")
+BPFv3$PolInt <- relevel(BPFv3$PolInt, ref="Non")
+logit1 <- glm(PolInt ~ SEXE + RS2B, data=BPFv3, family=binomial(link="logit"))
+@
+
+\end{frame}
+
+\begin{frame}[fragile]
+ \frametitle{Résultats}
+
+<<logistiqueres, results="hide">>=
+summary(logit1)
+@
+
+<<logistiqueres2, echo=F, results="asis", background="white">>=
+print(xtable(logit1))
+@
+
+<<valeurs>>=
+predict(logit1, newdata=data.frame(SEXE=c("Homme", "Femme", "Homme", "Femme"), RS2B=c("Sans diplôme", "Diplôme de l'enseignement supérieur (2ème ou 3ème cycles, gr", "Diplôme de l'enseignement supérieur (2ème ou 3ème cycles, gr", "Sans diplôme")), type="response")
+@
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Modèle linéaire généralisé}
+
+Pour le reste, explorer... On utilise globalement les mêmes outils qu'avec \verb!lm!.
+
+
+Beaucoup de ressources en ligne !
+
+
+\end{frame}
+
+\end{document}
+
